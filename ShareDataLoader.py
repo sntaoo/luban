@@ -1,32 +1,8 @@
-import datetime
 import akshare as ak
 import numpy as np
 from matplotlib  import pyplot as plt
-
-def getPolifyValue(x_data, y_data, x, degree=17):
-    pol = np.polyfit(x_data, y_data, degree)
-    y_pol = np.polyval(pol, x)
-    return y_pol
-
-def get_lmin_lmax(data):
-    l_min = (np.diff(np.sign(np.diff(data))) > 0).nonzero()[0] + 1      # 局部最小
-    l_max = (np.diff(np.sign(np.diff(data))) < 0).nonzero()[0] + 1      # 局部最大
-    return l_min, l_max
-
-def getTodayDate():
-    return "20" + datetime.date.today().__format__("%y%m%d")
-
-def getYesterdayDate():
-    oneday = datetime.timedelta(days=1) 
-    today = datetime.date.today()
-    yesterday = today - oneday
-    return "20" + yesterday.__format__("%y%m%d")
-
-# 获取bias天前的日期
-def getDateWithBias(bias):
-    today = datetime.date.today()
-    days = datetime.timedelta(days=bias)
-    return "20" + (today - days).__format__("%y%m%d") 
+from Analytics import *
+from TimeCalculator import *
 
 # 获取近一段时间的历史数据, 粒度为天
 '''

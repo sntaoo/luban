@@ -1,6 +1,10 @@
 from scipy.stats import norm, mstats
 import numpy as np
 from ShareDataLoader import *
+
+'''
+MK检验, 检测时序数据趋势
+'''
 def mk_trend_detect(x, alpha=0.1):
     n = len(x)
 
@@ -42,6 +46,7 @@ def mk_trend_detect(x, alpha=0.1):
 
 '''
 检查是否是低位放量涨的股票
+    多项式拟合求极值
     收盘价：
     1. 倒数六天内有极值点且最后一个极点为极小值点
     2. 1中选出来的点和上一个极大值点之间的间隔交易日大于等于10
@@ -88,15 +93,28 @@ def getLpoint(ticker_df, name):
     polified_y = getPolifiedFromRaw(ticker_df, name)
     return get_lmin_lmax(polified_y)
 
-def getPolifiedFromRaw(ticker_df, name):
+def getPolifiedFromRaw(ticker_df, name, degree=12):
     x_data = ticker_df.index.tolist()   
     y = ticker_df[name]
     x = np.linspace(0, max(ticker_df.index.tolist()), max(ticker_df.index.tolist()) + 1)
-    return getPolifyValue(x_data, y, x, 12)
+    return getPolifyValue(x_data, y, x, degree)
 
 '''
 检查是否是上升通道的股票
-    线性拟合120天内收盘价的所有极大值点, 斜率为正，越大越强
-    线性拟合120天内收盘价的所有极小值点, 斜率为正，越大越强
+    多项式拟合后求极值
+    线性拟合120天内收盘价的所有极大值点, 线性置信度优秀，斜率为正，越大越强
+    线性拟合120天内收盘价的所有极小值点, 线性置信度优秀，斜率为正，越大越强
+    极小值点小于等于1, 上升
+
     二者同为真
 '''
+def getIncreasingChannelShare(code):
+    try :
+        history_raw = getHistoryData(120, code)
+        history = history_raw[["收盘", "成交量"]]
+        polified_close = getPolifiedFromRaw(history, "收盘", 17)
+        polified_amount = getPolifiedFromRaw(history, "成交量", 17)
+        lmin_close, lmax_close = get_lmin_lmax(polified_close)
+        lmin_amount, lmax_amount = get_lmin_lmax(polified_amount)
+    except:
+        return False

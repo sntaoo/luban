@@ -11,6 +11,7 @@ def selectGoodStock(stocks):
             good_stock.append({"代码":code, "名称":name, "原因":"低位放量涨"})
     return good_stock
  
+ 
 if __name__ == '__main__':
     stock_zh_a_spot_em_df = ak.stock_zh_a_spot_em()
     stock_cy_a_spot_em_df = ak.stock_cy_a_spot_em() # 创业板数据
