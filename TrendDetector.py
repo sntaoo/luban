@@ -55,9 +55,8 @@ def mk_trend_detect(x, alpha=0.1):
     4. 1中交易日之后量价齐升高(低alpha MK检验)
     5. 最后一日的交易量为1中的点的两倍以上
 '''
-def isLowPriceLargeAmountIncrease(code):
+def isLowPriceLargeAmountIncrease(history_raw):
     try :
-        history_raw = getHistoryData(120, code)
         history = history_raw[["收盘", "成交量"]]
         polified_close = getPolifiedFromRaw(history, "收盘")
         polified_amount = getPolifiedFromRaw(history, "成交量")
@@ -88,11 +87,6 @@ def isLowPriceLargeAmountIncrease(code):
         return False
 
 
-
-def getLpoint(ticker_df, name):
-    polified_y = getPolifiedFromRaw(ticker_df, name)
-    return get_lmin_lmax(polified_y)
-
 def getPolifiedFromRaw(ticker_df, name, degree=12):
     x_data = ticker_df.index.tolist()   
     y = ticker_df[name]
@@ -101,20 +95,59 @@ def getPolifiedFromRaw(ticker_df, name, degree=12):
 
 '''
 检查是否是上升通道的股票
-    多项式拟合后求极值
-    线性拟合120天内收盘价的所有极大值点, 线性置信度优秀，斜率为正，越大越强
-    线性拟合120天内收盘价的所有极小值点, 线性置信度优秀，斜率为正，越大越强
-    极小值点小于等于1, 上升
-
-    二者同为真
+    必须交易超过60日以上
+    近30个交易日内收盘价趋势为上升
+    均线多头排列, 10日>20日>30日
+    5日均线允许与10日线交叉, 但不能比10日线低超过5个百分点
 '''
-def getIncreasingChannelShare(code):
-    try :
-        history_raw = getHistoryData(120, code)
-        history = history_raw[["收盘", "成交量"]]
-        polified_close = getPolifiedFromRaw(history, "收盘", 17)
-        polified_amount = getPolifiedFromRaw(history, "成交量", 17)
-        lmin_close, lmax_close = get_lmin_lmax(polified_close)
-        lmin_amount, lmax_amount = get_lmin_lmax(polified_amount)
-    except:
+def checkIf_sstd(history_raw):
+    tail_60 = history_raw.tail(60)
+    if len(tail_60) < 60:
         return False
+    result_60 = pd.DataFrame()
+    result_60['5日均线'] = tail_60['收盘'].rolling(window=5).mean()
+    result_60['10日均线'] = tail_60['收盘'].rolling(window=10).mean()
+    result_60["20日均线"] = tail_60['收盘'].rolling(window=20).mean()
+    result_60["30日均线"] = tail_60['收盘'].rolling(window=30).mean()
+    result_60["收盘"] = tail_60['收盘']
+    result = result_60.tail(30)
+    # 检查均线是否多头并进，除了5日线外，其他线必须有严格的上下关系
+    condition_met = (result['10日均线'] > result['20日均线']) & (result['20日均线'] > result['30日均线']) & (result['5日均线'] > 0.95 * result['10日均线'])
+    if (not condition_met.all()):
+        return False
+    
+    # 均线满足多头并进条件，MK检验检查近30个交易日的股价是否是上升趋势
+    closing_price = result['收盘'].values
+    return (mk_trend_detect(closing_price) == 1)
+
+
+'''
+涨停缩倍量用英文怎么写啊害
+10个交易日内有涨停(>=1次)
+今日成交量约为某个涨停日的一半(0.45到0.55之间)
+当日涨停的成交量为其前5天成交量最低值的三倍以上, 且收盘大于开盘
+今日收盘高于20日均线
+需要保证在上升通道内调用, 否则可能会抛越界异常
+'''
+def checkIf_ztsbl(history):
+    window = 10
+    data = history.tail(window)
+    if not any(data[data["涨跌幅"] >= 9.7]):
+        return False
+    
+    closing_mean_last_20 = data['收盘'].tail(20).mean()
+    if data.iloc[-1]['收盘'] < closing_mean_last_20:
+        return False
+    
+    zhang_ting = data.loc[data["涨跌幅"] > 9.7].copy()
+    zhang_ting['5日内最小成交量'] = 0.0
+    for ind in zhang_ting.index:
+        left, right = ind - 5, ind - 1
+        min_amount = history.loc[left:right, '成交量'].min()
+        zhang_ting.at[ind, '5日内最小成交量'] = min_amount
+    
+    condition_met = (zhang_ting['收盘'] > zhang_ting['开盘']) & (zhang_ting['成交量'] > 3 * zhang_ting['5日内最小成交量'])
+    satisfied_zhangting = zhang_ting[condition_met]
+    amount_today = data.iloc[-1]['成交量']
+    condition_success = (amount_today < satisfied_zhangting['成交量'] * 0.55) & (amount_today > satisfied_zhangting['成交量'] * 0.45)
+    return any(satisfied_zhangting[condition_success])

@@ -29,16 +29,31 @@ def get_lmin_lmax(data):
 '''
 线性拟合
 '''
-def linear_regression(x, y, cl=0.95):
+def linear_regression_and_display(x, y, no, cl=0.9):
+    a, b, t_value, sigma, Sxx, evident = linear_regression(x, y, cl)
+    print(a)
+    fig = plt.figure()
+    ax = fig.add_subplot()
+    ax.scatter(x,y,s=1,c='k',)
+    ax.plot(x,a*x+b,lw=1,label='Linear regression')
+    ax.fill_between(x, 
+                    a*x+b - t_value*sigma*np.sqrt(1./len(x)+(x-np.mean(x))**2/Sxx), 
+                    a*x+b + t_value*sigma*np.sqrt(1./len(x)+(x-np.mean(x))**2/Sxx), 
+                    alpha=0.3,
+                    label=r'Confidence limit'.format(100*cl))
+    ax.set_xlabel('$x$')
+    ax.set_ylabel('$y$')
+    ax.legend()
+    fig.savefig('Linear regression' + str(no) + '.png',dpi=300)
+
+
+def linear_regression(x, y, cl=0.9):
     """
     linear regression函数y = ax + b
     cl为置信水平
     alpha为显著性水平
     """
-    data = pd.DataFrame({'x' : x, 'y' : y}).sort_values(by='x')
-    x = np.asarray(data['x'])
-    y = np.asarray(data['y'])
-    
+
     alpha = 1 - cl
     
     a, b = np.polyfit(x, y, deg=1)
@@ -55,21 +70,6 @@ def linear_regression(x, y, cl=0.95):
     t_value = stats.t.isf(alpha/2, dof)
     
     if np.abs(a)/sigma*np.sqrt(Sxx) >= t_value:
-        print('t检验: 线性回归效果显著\n')
+        return a, b, t_value, sigma, Sxx, True
     else:
-        print('t检验: 线性回归效果不显著\n')
-
-    
-    fig = plt.figure()
-    ax = fig.add_subplot()
-    ax.scatter(x,y,s=1,c='k',)
-    ax.plot(x,a*x+b,lw=1,label='Linear regression')
-    ax.fill_between(x, 
-                    a*x+b - t_value*sigma*np.sqrt(1./len(x)+(x-np.mean(x))**2/Sxx), 
-                    a*x+b + t_value*sigma*np.sqrt(1./len(x)+(x-np.mean(x))**2/Sxx), 
-                    alpha=0.3,
-                    label=r'Confidence limit'.format(100*cl))
-    ax.set_xlabel('$x$')
-    ax.set_ylabel('$y$')
-    ax.legend()
-    fig.savefig('Linear regression.png',dpi=300)
+        return a, b, t_value, sigma, Sxx, False

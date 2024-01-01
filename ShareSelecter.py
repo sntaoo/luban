@@ -5,11 +5,16 @@ import json
 
 def selectGoodStock(stocks):
     good_stock = []
-    for index, row in stocks.iterrows():
+    for _, row in stocks.iterrows():
         code = row["代码"]
         name = row["名称"]
+        history = getHistoryData(120, code)
         if isLowPriceLargeAmountIncrease(code):
             good_stock.append({"代码":code, "名称":name, "原因":"低位放量涨"})
+        if checkIf_sstd(history):
+            good_stock.append({"代码":code, "名称":name, "原因":"上升通道"})
+            if checkIf_ztsbl(history):
+                good_stock.append({"代码":code, "名称":name, "原因":"上升通道涨停缩倍量"})
     return good_stock
  
 
@@ -22,9 +27,9 @@ if __name__ == '__main__':
     filtered_share = filtered_share[~filtered_share["名称"].str.contains('ST|st')]
     stocks = filtered_share[["代码", "名称"]]
     good_stock = selectGoodStock(stocks)
+    print(good_stock)
     with open("test.json", "w", encoding="utf-8") as file:
         file.write(json.dumps(good_stock))
-    print(good_stock)
 
 
 
