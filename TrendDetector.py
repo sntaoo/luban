@@ -87,6 +87,7 @@ def isLowPriceLargeAmountIncrease(history_raw):
         return False
 
 
+# 多项式拟合原始数据
 def getPolifiedFromRaw(ticker_df, name, degree=12):
     x_data = ticker_df.index.tolist()   
     y = ticker_df[name]
@@ -125,21 +126,25 @@ def checkIf_sstd(history_raw):
 涨停缩倍量用英文怎么写啊害
 10个交易日内有涨停(>=1次)
 今日成交量约为某个涨停日的一半(0.45到0.55之间)
-当日涨停的成交量为其前5天成交量最低值的三倍以上, 且收盘大于开盘
+当日涨停的成交量为其前5天成交量最低值的三倍以上（涨停需放量）, 且收盘大于开盘
 今日收盘高于20日均线
 需要保证在上升通道内调用, 否则可能会抛越界异常
+code 参数没什么用， 只是print可以看是哪一只
 '''
-def checkIf_ztsbl(history):
-    window = 10
+def checkIf_ztsbl(code, history):
+    min_rate, max_rate = 9.0, 10.1 # 涨停阈值，涨幅需要在这个范围内
+    if (history["涨跌幅"] >= max_rate).any():
+        return False
+    window = 10 # 检验窗口
     data = history.tail(window)
-    if not any(data[data["涨跌幅"] >= 9.7]):
+    if not ((data["涨跌幅"] >= min_rate).any()):
         return False
     
-    closing_mean_last_20 = data['收盘'].tail(20).mean()
+    closing_mean_last_20 = data['收盘'].tail(20).mean() # 20日均值
     if data.iloc[-1]['收盘'] < closing_mean_last_20:
         return False
     
-    zhang_ting = data.loc[data["涨跌幅"] > 9.7].copy()
+    zhang_ting = data.loc[data["涨跌幅"] > min_rate].copy()
     zhang_ting['5日内最小成交量'] = 0.0
     for ind in zhang_ting.index:
         left, right = ind - 5, ind - 1
@@ -147,7 +152,9 @@ def checkIf_ztsbl(history):
         zhang_ting.at[ind, '5日内最小成交量'] = min_amount
     
     condition_met = (zhang_ting['收盘'] > zhang_ting['开盘']) & (zhang_ting['成交量'] > 3 * zhang_ting['5日内最小成交量'])
-    satisfied_zhangting = zhang_ting[condition_met]
-    amount_today = data.iloc[-1]['成交量']
-    condition_success = (amount_today < satisfied_zhangting['成交量'] * 0.55) & (amount_today > satisfied_zhangting['成交量'] * 0.45)
-    return any(satisfied_zhangting[condition_success])
+    if not (condition_met.any()):
+        return False
+    fangliang_zhangting = zhang_ting[condition_met]
+    amount_today = data.iloc[-1]['成交量'] # 今日成交量
+    condition_success = (amount_today < fangliang_zhangting['成交量'] * 0.75) & (amount_today > fangliang_zhangting['成交量'] * 0.45)
+    return condition_success.any() # 今日成交量满足任意放量涨停的那天的成交量的缩量条件，返回True

@@ -22,5 +22,5 @@ def testIsLowPriceLargeAmountIncrease(code):
 
 
 if __name__ == '__main__':
-    history = getHistoryData(120, "002875")
-    print(checkIf_sstd(history))
+    history = getHistoryData(120, "831167")
+    print(checkIf_ztsbl("831167", history))
